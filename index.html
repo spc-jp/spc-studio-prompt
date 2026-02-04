@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Studio Prompt v1.2</title>
+  <meta name="description" content="NotebookLMソース整理文とStudio生成プロンプトを瞬時に作成するツール" />
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* Colors - Fresh Theme */
+      --bg-base: #f8fafc;
+      --bg-grad-1: #e0f2fe; /* Light Sky */
+      --bg-grad-2: #f0fdfa; /* Mint */
+      
+      --glass-bg: rgba(255, 255, 255, 0.75);
+      --glass-border: rgba(255, 255, 255, 0.8);
+      --glass-highlight: rgba(255, 255, 255, 0.9);
+      --glass-shadow: rgba(148, 163, 184, 0.15); /* Colored soft shadow */
+      
+      --primary: #0ea5e9; /* Sky Blue */
+      --primary-hover: #0284c7;
+      --primary-light: #e0f2fe;
+      
+      --accent-slide: #8b5cf6; /* Violet */
+      --accent-info: #06b6d4;  /* Cyan */
+      
+      --text-main: #334155; /* Slate 700 */
+      --text-muted: #64748b; /* Slate 500 */
+      --text-dim: #94a3b8;   /* Slate 400 */
+      
+      --input-bg: rgba(255, 255, 255, 0.6);
+      --input-border: rgba(203, 213, 225, 0.6);
+      --input-focus: rgba(255, 255, 255, 0.95);
+      
+      --success: #10b981;
+      --danger: #ef4444;
+
+      /* Spacing & Radius */
+      --radius-lg: 24px; /* Rounder */
+      --radius-md: 16px;
+      --radius-sm: 10px;
+      
+      /* Fonts */
+      --font-sans: 'Inter', 'Noto Sans JP', sans-serif;
+      --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      /* Fresh Gradients */
+      background-image: 
+        radial-gradient(circle at 10% 10%, rgba(14, 165, 233, 0.12), transparent 40%),
+        radial-gradient(circle at 90% 60%, rgba(139, 92, 246, 0.12), transparent 40%),
+        linear-gradient(135deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 100%);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      font-feature-settings: "palt";
+    }
+
+    /* Layout */
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px;
+      gap: 20px;
+    }
+
+    /* Header Layout - 3 Columns (Logo | Title | Controls) */
+    .header {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 0 8px;
+      gap: 16px;
+    }
+
+    /* Left: Logo */
+    .header-left {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+    }
+    .logo-img {
+      height: 50px; /* Adjust logo size */
+      width: auto;
+      object-fit: contain;
+      /* If image fails, hide it and show text fallback if needed */
+      display: block;
+      /* Blend mode to make white background transparent */
+      mix-blend-mode: multiply;
+    }
+
+    /* Center: Title */
+    .header-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .header-center h1 {
+      font-size: 24px; 
+      margin: 0; 
+      font-weight: 700; 
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+    }
+    .header-center p {
+      font-size: 13px; 
+      margin: 2px 0 0; 
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.05em;
+    }
+
+    /* Right: Controls */
+    .header-right {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* Glass Card (White Frost) */
+    .glass-panel {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.02),
+        0 10px 15px -3px var(--glass-shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    /* Main Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px 1fr;
+      gap: 24px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Column Headers - Fixed Height for Alignment */
+    .panel-header {
+      height: 68px;
+      padding: 0 20px;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+      background: rgba(255, 255, 255, 0.4);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0; 
+    }
+    .panel-header h2 {
+      margin: 0; font-size: 15px; font-weight: 600; color: var(--text-main);
+      display: flex; align-items: center; gap: 10px;
+    }
+    /* Dot Indicators */
+    .panel-header h2::before {
+      content: ""; display: block; width: 8px; height: 8px; border-radius: 50%;
+    }
+    .col-1 h2::before { background: var(--success); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15); }
+    .col-2 h2::before { background: var(--primary); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15); }
+    .col-3 h2::before { background: var(--accent-slide); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); }
+
+    .panel-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Form Elements */
+    .form-group {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .label {
+      font-size: 12px; color: var(--text-muted); font-weight: 600;
+      display: flex; justify-content: space-between;
+      letter-spacing: 0.02em;
+    }
+    .label span.optional { font-weight: 400; opacity: 0.7; }
+
+    input, textarea, select {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      transition: all 0.2s ease;
+      outline: none;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+    }
+    input::placeholder, textarea::placeholder {
+      color: var(--text-dim);
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light), inset 0 1px 2px rgba(0,0,0,0.02);
+      background: var(--input-focus);
+    }
+    textarea {
+      resize: none;
+      min-height: 140px;
+      line-height: 1.6;
+    }
+    
+    /* Config Pills */
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: "▼";
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      font-size: 8px; color: var(--text-muted); pointer-events: none;
+    }
+    select { appearance: none; cursor: pointer; }
+
+    /* Primary Action Buttons */
+    .action-btn {
+      width: 100%;
+      padding: 18px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      position: relative;
+      overflow: hidden;
+      color: white;
+    }
+    .action-btn strong { font-size: 15px; font-weight: 700; }
+    .action-btn span { font-size: 11px; opacity: 0.9; font-weight: 500; }
+    
+    /* Info Button: Fresh Cyan/Blue */
+    .btn-info {
+      background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+    }
+    .btn-info:hover {
+      box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35);
+      transform: translateY(-2px);
+    }
+    .btn-info.active {
+      background: linear-gradient(135deg, #06b6d4, #0284c7);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+      transform: translateY(0);
+    }
+
+    /* Slide Button: Soft Violet */
+    .btn-slide {
+      background: linear-gradient(135deg, #a78bfa, #7c3aed);
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+    }
+    .btn-slide:hover {
+      box-shadow: 0 8px 20px rgba(124, 58, 237, 0.35);
+      transform: translateY(-2px);
+    }
+    .btn-slide.active {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+      transform: translateY(0);
+    }
+
+    /* Output Area */
+    .output-area {
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.7;
+      color: #1e293b;
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      white-space: pre-wrap;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.03);
+    }
+    
+    /* Tabs */
+    .tab-group {
+      display: flex;
+      background: rgba(0,0,0,0.05);
+      padding: 5px;
+      border-radius: var(--radius-md);
+      gap: 5px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      font-size: 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text-main); background: rgba(255,255,255,0.5); }
+    .tab.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    /* History List */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .history-item {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.4);
+      border: 1px solid rgba(255,255,255,0.6);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .history-item:hover {
+      background: rgba(255,255,255,0.9);
+      border-color: var(--primary-light);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      transform: translateX(2px);
+    }
+    .h-title { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .h-meta { font-size: 11px; color: var(--text-dim); margin-top: 4px; display: flex; justify-content: space-between;}
+
+    /* Utility Buttons */
+    .btn-icon {
+      background: transparent; border: none; color: var(--text-dim);
+      cursor: pointer; padding: 6px; border-radius: 8px; transition: 0.2s;
+    }
+    .btn-icon:hover { background: rgba(0,0,0,0.05); color: var(--danger); }
+    
+    .btn-sm {
+      font-size: 12px; padding: 8px 16px; border-radius: 10px;
+      border: 1px solid transparent;
+      background: rgba(255,255,255,0.5);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: 0.2s;
+      font-weight: 500;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .btn-sm:hover { background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .btn-sm.primary {
+      background: var(--primary); color: white;
+      box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+    }
+    .btn-sm.primary:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 12px 24px;
+      border-radius: 30px;
+      border: 1px solid rgba(0,0,0,0.05);
+      font-size: 13px;
+      color: var(--text-main);
+      font-weight: 500;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      z-index: 100;
+      opacity: 0; pointer-events: none; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: translate(-50%, -20px);
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* Cursor for typing effect */
+    .typing-cursor::after {
+      content: "▋";
+      display: inline-block;
+      vertical-align: bottom;
+      animation: blink 1s step-end infinite;
+      color: var(--primary);
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* Footer Style */
+    .footer {
+      text-align: center;
+      padding: 5px 0 0;
+      font-size: 11px;
+      color: var(--text-dim);
+      opacity: 0.8;
+      width: 100%;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      body { overflow: auto; height: auto; }
+      .app-container { height: auto; padding: 16px; }
+      .header { display: flex; flex-direction: column; gap: 12px; text-align: center; }
+      .header-left, .header-center, .header-right { justify-content: center; width: 100%; }
+      .main-grid { grid-template-columns: 1fr; display: flex; flex-direction: column; gap: 16px; }
+      .glass-panel { min-height: auto; }
+      textarea { min-height: 150px; }
+      .output-area { min-height: 300px; }
+      .controls-top { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <!-- Left: Logo -->
+      <div class="header-left">
+        <img src="rogo.jpg" alt="SPC Logo" class="logo-img" onerror="this.style.display='none'">
+      </div>
+
+      <!-- Center: Title -->
+      <div class="header-center">
+        <h1>Studio Prompt</h1>
+        <p>Creation Tool</p>
+      </div>
+
+      <!-- Right: Buttons -->
+      <div class="header-right controls-top">
+        <button class="btn-sm" id="btnSaveHistory">履歴に保存</button>
+        <button class="btn-sm" id="btnExport">JSON出力</button>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+      
+      <!-- COLUMN 1: INPUT -->
+      <section class="glass-panel col-1">
+        <div class="panel-header">
+          <h2>1. 元の情報を入力</h2>
+          <button class="btn-icon" id="btnClearInput" title="クリア">🗑️</button>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="label">要点テキスト (必須)</label>
+            <textarea id="srcText" placeholder="ここにPDFの要約、議事録、メモなどを貼り付けてください..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="label">参照URL <span class="optional">(任意)</span></label>
+            <input type="text" id="srcUrl" placeholder="https://..." />
+          </div>
+          
+          <div style="margin-top:auto; padding-top:10px; border-top:1px solid rgba(0,0,0,0.05);">
+            <p style="font-size:11px; color:var(--text-muted); line-height:1.5;">
+              💡 <strong>Tips:</strong> テキストエリアには「箇条書き」でも「ベタ打ち」でもOK。NotebookLMが理解できる情報量があれば十分です。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUMN 2: CONFIG -->
+      <section class="glass-panel col-2">
+        <div class="panel-header">
+          <h2>2. 目的と設定</h2>
+        </div>
+        <div class="panel-body">
+          <!-- DATALIST DEFINITIONS -->
+          <datalist id="titleList">
+            <option value="DX導入ガイド">
+            <option value="業務マニュアル">
+            <option value="新サービス提案書">
+            <option value="四半期報告書">
+            <option value="新入社員オンボーディング資料">
+            <option value="製品カタログ">
+          </datalist>
+          
+          <datalist id="purposeList">
+            <option value="顧客への提案資料">
+            <option value="社内研修用">
+            <option value="経営会議での報告">
+            <option value="セミナー登壇資料">
+            <option value="ホワイトペーパー配布">
+            <option value="営業ピッチ資料">
+          </datalist>
+
+          <div class="form-group">
+            <label class="label">案件名 / タイトル</label>
+            <input type="text" id="projectTitle" placeholder="例: DX導入ガイド" list="titleList" />
+          </div>
+          
+          <div class="form-group">
+            <label class="label">用途 / ゴール</label>
+            <input type="text" id="purpose" placeholder="例: 顧客への提案資料" list="purposeList" />
+          </div>
+
+          <div class="config-grid">
+            <div class="form-group">
+              <label class="label">対象</label>
+              <div class="select-wrap">
+                <select id="audience">
+                  <option value="社外向け">社外向け</option>
+                  <option value="社内向け">社内向け</option>
+                  <option value="初心者">初心者</option>
+                  <option value="専門家">専門家</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="label">トーン</label>
+              <div class="select-wrap">
+                <select id="tone">
+                  <option value="やさしい">やさしい</option>
+                  <option value="ビジネス">ビジネス</option>
+                  <option value="論理的">論理的</option>
+                  <option value="情熱的">情熱的</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Color Selection -->
+          <div class="config-grid">
+             <div class="form-group">
+              <label class="label">文字量</label>
+              <div class="select-wrap">
+                <select id="length">
+                  <option value="標準">標準</option>
+                  <option value="短め">短め (要約重視)</option>
+                  <option value="しっかり">しっかり (詳細重視)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="label">カラーテーマ</label>
+              <div class="select-wrap">
+                <select id="colorTheme">
+                  <option value="おまかせ">おまかせ</option>
+                  <option value="ブルー系（信頼・知性）">ブルー系</option>
+                  <option value="オレンジ系（元気・親しみ）">オレンジ系</option>
+                  <option value="グリーン系（安心・成長）">グリーン系</option>
+                  <option value="モノトーン（洗練）">モノトーン</option>
+                  <option value="レッド系（情熱・注意）">レッド系</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin: 6px 0;"></div>
+
+          <!-- Action Buttons -->
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <button class="action-btn btn-info" id="btnInfo">
+              <strong>インフォグラフィック生成</strong>
+              <span>要点を1枚絵の構成にする</span>
+            </button>
+            <button class="action-btn btn-slide" id="btnSlide">
+              <strong>スライド資料生成</strong>
+              <span>10枚前後のプレゼン構成にする</span>
+            </button>
+          </div>
+
+          <!-- History Mini View -->
+          <div style="margin-top:auto; flex:1; min-height:80px; display:flex; flex-direction:column;">
+             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+               <label class="label">最近の履歴</label>
+               <button class="btn-icon" style="font-size:10px;" id="btnClearHistory">全削除</button>
+             </div>
+             <div class="history-list" id="history"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUMN 3: OUTPUT -->
+      <section class="glass-panel col-3">
+        <div class="panel-header">
+          <h2>3. 生成結果</h2>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-sm" id="btnDownload">保存 (.txt)</button>
+            <button class="btn-sm primary" id="btnCopy">コピー</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="tab-group">
+            <div class="tab active" data-tab="nblm">NotebookLM用</div>
+            <div class="tab" data-tab="studio">Studio生成用</div>
+          </div>
+          
+          <div class="output-area" id="output">
+            <div style="color:var(--text-dim); text-align:center; padding-top:40px;">
+              中央のボタンを押して<br>プロンプトを生成してください
+            </div>
+          </div>
+          
+          <div style="font-size:11px; color:var(--text-muted); text-align:right;">
+             <span id="status">準備完了</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+    
+    <!-- Footer -->
+    <footer class="footer">
+      テスト版（ベータ版） © 2026 SPC
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Message</div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // --- Logic State ---
+    const state = {
+      mode: null,
+      activeTab: "nblm",
+      generatedAt: null,
+      lastNblm: "",
+      lastStudio: ""
+    };
+
+    // --- Utils ---
+    const showToast = (msg) => {
+      const t = $("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2000);
+    };
+
+    const safeText = (v) => (v || "").trim();
+    const nowJP = () => {
+      const d = new Date();
+      return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    };
+
+    // --- Typewriter Effect ---
+    let typeInterval;
+    const typeWriter = (text, element) => {
+      element.innerHTML = "";
+      element.classList.add("typing-cursor");
+      
+      if (typeInterval) clearInterval(typeInterval);
+
+      if (text.length > 2000) {
+        element.textContent = text;
+        element.classList.remove("typing-cursor");
+        return;
+      }
+
+      let i = 0;
+      const speed = 2; 
+      const batchSize = 5; 
+
+      typeInterval = setInterval(() => {
+        const chunk = text.slice(i, i + batchSize);
+        element.textContent += chunk;
+        i += batchSize;
+        
+        if (i >= text.length) {
+          clearInterval(typeInterval);
+          element.classList.remove("typing-cursor");
+        }
+      }, speed);
+    };
+
+    // --- Core Logic ---
+
+    function buildSourceBlock(){
+      const url = safeText($("srcUrl").value);
+      const text = safeText($("srcText").value);
+      
+      const title = safeText($("projectTitle").value);
+      const purpose = safeText($("purpose").value);
+      
+      const audience = $("audience").value;
+      const tone = $("tone").value;
+      const length = $("length").value;
+      const colorTheme = $("colorTheme").value; 
+
+      // Meta for NotebookLM
+      const meta = [
+        title ? `案件名：${title}` : "案件名：未入力",
+        purpose ? `用途：${purpose}` : "用途：未入力",
+        `対象：${audience}`,
+        `トーン：${tone}`,
+        `文字量：${length}`,
+        `カラーテーマ：${colorTheme}`,
+        url ? `参照URL：${url}` : "参照URL：なし"
+      ].join("\n");
+
+      // Body Text
+      const body = text ? text : "（テキスト未入力）";
+      
+      return { meta, body, title, purpose, audience, tone, length, url, colorTheme };
+    }
+
+    function templateNotebookLM(block){
+      return `以下の内容をNotebookLMのソースとして使用してください。
+
+[ソースの目的]
+この資料は、内容を短時間で理解し、後続の生成（インフォグラフィック／スライド）に再利用できる形に整えるためのソースです。
+
+[入力メタ情報]
+${block.meta}
+
+[要点整理の指針]
+・背景／課題／現状
+・提供価値（何が良くなるか）
+・具体内容（機能、手順、特徴、数字）
+・活用シーン（誰が、いつ、どこで、どう使うか）
+・注意点／制約（対象外、前提条件）
+
+[ソース本文]
+${block.body}`;
+    }
+
+    function commonStudioPreamble(block){
+      // Add color instruction specifically for Studio
+      return `以下のNotebookLMソースをもとに成果物を作成してください。
+
+[前提]
+${block.meta}
+`;
+    }
+
+    function templateStudioInfographic(block){
+      return `あなたは情報整理が得意なデザイナーです。
+${commonStudioPreamble(block)}
+
+[作るもの]
+インフォグラフィック（1枚で全体像が分かる構成）
+
+[デザイン指定]
+・メインカラー：${block.colorTheme}
+
+[構成ルール]
+・流れ：背景 → 課題 → 解決（提案/方法） → 活用（行動）
+・専門用語は避け、誰でも理解できる表現にする
+・箇条書きの羅列ではなく、見出しごとにまとまりを作る
+・重要ポイントは最大7つに圧縮
+
+[出力形式]
+・テキストで構成案を提示（見出し＋要点）
+・最後に「一言キャッチ」を3案
+・最後に「行動の一歩（CTA）」を1文
+
+[NotebookLMソース]
+（ここにソースが入っている前提で作成）`;
+    }
+
+    function templateStudioSlides(block){
+      return `あなたは資料作成のプロです。
+${commonStudioPreamble(block)}
+
+[作るもの]
+スライド資料（全体10枚前後、1スライド1メッセージ）
+
+[デザイン指定]
+・メインカラー：${block.colorTheme}
+
+[構成ルール]
+・初心者にも分かる説明順にする
+・タイトルは短く（12文字目安）
+・本文は要点のみ（話す内容は別に補足）
+・必要なら図解案（1行）を添える
+
+[出力形式]
+スライド番号／タイトル
+・表示する要点（2〜4行）
+・話す内容（1〜2行）
+・図解案（任意、1行）
+
+[最後に]
+・まとめ（3行）
+・次の一手（CTA、1行）
+
+[NotebookLMソース]
+（ここにソースが入っている前提で作成）`;
+    }
+
+
+    // --- Interaction ---
+
+    function validateInputs(){
+      const text = safeText($("srcText").value);
+      if(!text){
+        showToast("⚠️ 要点テキストを入力してください");
+        $("srcText").focus();
+        return false;
+      }
+      return true;
+    }
+
+    function generate(mode){
+      if(!validateInputs()) return;
+
+      const block = buildSourceBlock();
+      state.mode = mode;
+      state.generatedAt = nowJP();
+
+      state.lastNblm = templateNotebookLM(block);
+      
+      if(mode === "info"){
+        state.lastStudio = templateStudioInfographic(block);
+      } else {
+        state.lastStudio = templateStudioSlides(block);
+      }
+
+      // Update UI
+      renderOutput();
+      updateButtonStates();
+      showToast("✨ プロンプト生成完了");
+    }
+
+    function updateButtonStates(){
+      $("btnInfo").classList.toggle("active", state.mode === "info");
+      $("btnSlide").classList.toggle("active", state.mode === "slide");
+      $("status").textContent = `生成完了: ${state.mode === "info" ? "インフォグラフィック" : "スライド"} (${state.generatedAt})`;
+    }
+
+    function renderOutput(){
+      const out = $("output");
+      const content = state.activeTab === "nblm" ? state.lastNblm : state.lastStudio;
+      
+      if(!content) {
+        out.innerHTML = `<div style="color:var(--text-dim); text-align:center; padding-top:40px;">中央のボタンを押して<br>プロンプトを生成してください</div>`;
+        return;
+      }
+      
+      // Use Typewriter effect
+      typeWriter(content, out);
+    }
+
+    function setActiveTab(tab){
+      state.activeTab = tab;
+      document.querySelectorAll(".tab").forEach(el => {
+        el.classList.toggle("active", el.dataset.tab === tab);
+      });
+      renderOutput();
+    }
+
+    // --- History Logic ---
+    const STORAGE_KEY = "SPF_HISTORY_V05"; 
+
+    function loadHistory(){
+      try{ return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+      catch(e){ return []; }
+    }
+    
+    function renderHistory(){
+      const box = $("history");
+      const items = loadHistory();
+      box.innerHTML = "";
+
+      if(items.length === 0){
+        box.innerHTML = `<div style="font-size:11px; color:var(--text-dim); text-align:center;">履歴はありません</div>`;
+        return;
+      }
+
+      items.slice().reverse().forEach(it => {
+        const el = document.createElement("div");
+        el.className = "history-item";
+        el.innerHTML = `
+          <div class="h-title">${it.title || "No Title"}</div>
+          <div class="h-meta">
+            <span>${it.mode}</span>
+            <span>${it.date}</span>
+          </div>
+        `;
+        el.onclick = () => restoreHistory(it);
+        box.appendChild(el);
+      });
+    }
+
+    function saveCurrentToHistory(){
+      if(!state.lastNblm) {
+        showToast("⚠️ 保存する内容がありません");
+        return;
+      }
+      const items = loadHistory();
+      const newItem = {
+        id: Date.now(),
+        date: nowJP(),
+        mode: state.mode,
+        inputs: {
+          text: $("srcText").value,
+          url: $("srcUrl").value,
+          title: $("projectTitle").value,
+          purpose: $("purpose").value,
+          audience: $("audience").value,
+          tone: $("tone").value,
+          length: $("length").value,
+          colorTheme: $("colorTheme").value
+        },
+        outputs: {
+          nblm: state.lastNblm,
+          studio: state.lastStudio
+        }
+      };
+      // Keep max 10
+      if(items.length > 9) items.shift();
+      items.push(newItem);
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      renderHistory();
+      showToast("💾 履歴に保存しました");
+    }
+
+    function restoreHistory(it){
+      $("srcText").value = it.inputs.text || "";
+      $("srcUrl").value = it.inputs.url || "";
+      $("projectTitle").value = it.inputs.title || "";
+      $("purpose").value = it.inputs.purpose || "";
+      $("audience").value = it.inputs.audience || "社外向け";
+      $("tone").value = it.inputs.tone || "やさしい";
+      $("length").value = it.inputs.length || "標準";
+      $("colorTheme").value = it.inputs.colorTheme || "おまかせ";
+
+      state.mode = it.mode;
+      state.lastNblm = it.outputs.nblm;
+      state.lastStudio = it.outputs.studio;
+      state.generatedAt = it.date;
+
+      setActiveTab("nblm");
+      updateButtonStates();
+      renderOutput();
+      showToast("📂 履歴を復元しました");
+    }
+
+    // --- Events ---
+
+    $("btnInfo").onclick = () => generate("info");
+    $("btnSlide").onclick = () => generate("slide");
+
+    document.querySelectorAll(".tab").forEach(el => {
+      el.onclick = () => setActiveTab(el.dataset.tab);
+    });
+
+    $("btnCopy").onclick = () => {
+      const content = state.activeTab === "nblm" ? state.lastNblm : state.lastStudio;
+      if(!content) {
+        showToast("⚠️ コピーする内容がありません");
+        return;
+      }
+      
+      const textArea = document.createElement("textarea");
+      textArea.value = content;
+      
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "0";
+      document.body.appendChild(textArea);
+      
+      textArea.focus();
+      textArea.select();
+      
+      try {
+        const successful = document.execCommand('copy');
+        if(successful) {
+            showToast("✅ コピーしました！");
+        } else {
+            showToast("❌ コピーに失敗しました");
+        }
+      } catch (err) {
+        showToast("❌ エラー: コピーできませんでした");
+        console.error('Copy error', err);
+      }
+      
+      document.body.removeChild(textArea);
+    };
+
+    $("btnDownload").onclick = () => {
+       const content = state.activeTab === "nblm" ? state.lastNblm : state.lastStudio;
+       if(!content) return;
+       const blob = new Blob([content], {type:"text/plain"});
+       const url = URL.createObjectURL(blob);
+       const a = document.createElement("a");
+       a.href = url;
+       a.download = `SPF_${$("projectTitle").value || "prompt"}.txt`;
+       a.click();
+       showToast("📥 ダウンロードしました");
+    };
+
+    $("btnClearInput").onclick = () => {
+      $("srcText").value = "";
+      $("srcUrl").value = "";
+      $("projectTitle").value = "";
+      $("purpose").value = "";
+      showToast("🗑️ 入力をクリアしました");
+    };
+
+    $("btnSaveHistory").onclick = saveCurrentToHistory;
+    
+    $("btnClearHistory").onclick = () => {
+      if(confirm("履歴をすべて削除しますか？")){
+        localStorage.removeItem(STORAGE_KEY);
+        renderHistory();
+        showToast("🗑️ 履歴を削除しました");
+      }
+    };
+    
+    $("btnExport").onclick = () => {
+      const items = loadHistory();
+      const blob = new Blob([JSON.stringify(items, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "spf_history.json";
+      a.click();
+    };
+
+    // Init
+    renderHistory();
+  </script>
+</body>
+</html>
